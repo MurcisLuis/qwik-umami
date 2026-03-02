@@ -1,7 +1,7 @@
 {
   "name": "qwik-umami",
-  "version": "0.1.0",
-  "description": "Umami Analytics integration for Qwik",
+  "version": "1.0.0",
+  "description": "SSR-safe Umami Analytics component and hook for Qwik — automatic page views + custom event tracking with zero config",
   "type": "module",
   "main": "./lib/index.qwik.mjs",
   "qwik": "./lib/index.qwik.mjs",
@@ -15,7 +15,8 @@
   },
   "files": [
     "lib",
-    "lib-types"
+    "lib-types",
+    "llms.txt"
   ],
   "scripts": {
     "build": "vite build --mode lib && tsc --emitDeclarationOnly",
@@ -24,11 +25,29 @@
   },
   "keywords": [
     "qwik",
+    "qwik-city",
     "analytics",
     "umami",
     "tracking",
-    "privacy"
+    "privacy",
+    "ssr",
+    "page-views",
+    "event-tracking",
+    "self-hosted",
+    "google-analytics-alternative"
   ],
+  "author": {
+    "name": "murcisluis",
+    "url": "https://github.com/murcisluis"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/murcisluis/qwik-umami"
+  },
+  "homepage": "https://github.com/murcisluis/qwik-umami#readme",
+  "bugs": {
+    "url": "https://github.com/murcisluis/qwik-umami/issues"
+  },
   "license": "MIT",
   "peerDependencies": {
     "@builder.io/qwik": ">=1.0.0"

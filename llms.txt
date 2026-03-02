@@ -1,0 +1,154 @@
+# qwik-umami
+
+> SSR-safe Umami Analytics component and hook for Qwik
+
+## What this package does
+
+qwik-umami provides two exports for integrating Umami analytics into a Qwik application:
+
+1. `<UmamiScript>` — A Qwik component that loads the Umami tracker script client-side
+2. `useUmamiTrack()` — A hook that returns a `track()` function for custom events
+
+Page views are tracked automatically by Umami's script. Custom events use `track()`.
+
+## Installation
+
+```bash
+bun add qwik-umami
+npm install qwik-umami
+pnpm add qwik-umami
+```
+
+Peer dependency: `@builder.io/qwik >= 1.0.0`
+
+## Exports
+
+```ts
+import { UmamiScript, useUmamiTrack } from 'qwik-umami';
+import type { UmamiConfig, UmamiEventData } from 'qwik-umami';
+```
+
+## UmamiScript component
+
+Place in `<head>` inside `root.tsx`. This is the only setup needed for automatic page view tracking.
+
+```tsx
+import { UmamiScript } from 'qwik-umami';
+
+// In root.tsx, inside <head>:
+<UmamiScript websiteId="your-website-id" />
+
+// Self-hosted:
+<UmamiScript
+  websiteId="your-website-id"
+  src="https://your-umami.example.com/script.js"
+/>
+```
+
+### Props (UmamiConfig)
+
+| Prop | Type | Default | Required | Description |
+| --- | --- | --- | --- | --- |
+| websiteId | string | — | yes | Umami website ID (UUID) |
+| src | string | https://cloud.umami.is/script.js | no | Tracker script URL |
+| hostUrl | string | — | no | Custom data collection endpoint |
+| autoTrack | boolean | true | no | Auto-track page views |
+| domains | string | — | no | Comma-separated allowed domains |
+| dataDomains | string | — | no | Comma-separated data domains |
+
+### Implementation details
+
+- Uses `useVisibleTask$` (client-side only, SSR-safe)
+- Checks if script is already loaded via `data-website-id` attribute (dedup)
+- Sends HEAD request to verify service availability before injecting script (3s timeout)
+- Fails silently if service is unreachable or script is blocked
+
+## useUmamiTrack hook
+
+Returns `{ track }` function. SSR-safe (no-op on server).
+
+```tsx
+import { useUmamiTrack } from 'qwik-umami';
+
+const { track } = useUmamiTrack();
+
+// Simple event
+track('button-click');
+
+// Event with data
+track('signup', { plan: 'pro', source: 'landing' });
+```
+
+### track() signature
+
+```ts
+track(eventName: string, eventData?: Record<string, string | number | boolean>): void
+```
+
+### Behavior
+
+- If `typeof window === 'undefined'`: returns immediately (SSR)
+- If `window.umami` is not available: logs warning in dev, silent in prod
+- If error occurs: catches and logs in dev, silent in prod
+- Always fire-and-forget, never throws
+
+## UmamiEventData type
+
+```ts
+type UmamiEventData = Record<string, string | number | boolean>;
+```
+
+Umami constraints: numbers max 4 decimal places, strings max 500 chars, objects max 50 properties.
+
+## Common usage patterns
+
+### Root setup (required)
+```tsx
+// src/root.tsx
+<head>
+  <UmamiScript websiteId="abc-123" />
+</head>
+```
+
+### CTA tracking
+```tsx
+onClick$={() => track('cta-click', { location: 'hero', label: 'signup' })}
+```
+
+### Form submission tracking
+```tsx
+track('contact-form-submit', { service: 'consulting' });
+```
+
+### Auth event tracking
+```tsx
+track('login', { success: true });
+track('register', { success: false });
+```
+
+### Feature/action tracking
+```tsx
+track('project-create');
+track('project-open', { status: 'ACTIVE' });
+track('chat-message-sent', { hasAttachments: true });
+```
+
+## Source structure
+
+```
+src/
+├── index.ts                    # Barrel export
+├── types.ts                    # UmamiConfig, UmamiEventData, Window augmentation
+├── components/
+│   └── umami-script.tsx        # <UmamiScript> component
+└── hooks/
+    └── use-umami-track.ts      # useUmamiTrack() hook
+```
+
+## Important notes for LLMs
+
+- This package has NO runtime dependencies. Only `@builder.io/qwik` as peer dep.
+- The `track()` function from `useUmamiTrack()` is NOT a QRL ($). It's a plain function that can be called inside `$()`, `onClick$()`, or any other Qwik handler.
+- `<UmamiScript>` renders `null` — it only has a side effect (injecting the script tag).
+- The package works with both Umami Cloud and self-hosted Umami instances.
+- Do NOT use `data-umami-event` HTML attributes with this package — use the `track()` function from `useUmamiTrack()` instead, as it integrates properly with Qwik's event system.
