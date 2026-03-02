@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:qwik.dev)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:code.build)",
+      "WebFetch(domain:pr-qwik-sdk.qwik-docs.pages.dev)"
+    ]
+  }
+}
