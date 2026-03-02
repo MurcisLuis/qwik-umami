@@ -1,6 +1,6 @@
 {
   "name": "qwik-umami",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "SSR-safe Umami Analytics component and hook for Qwik — automatic page views + custom event tracking with zero config",
   "type": "module",
   "main": "./lib/index.qwik.mjs",
