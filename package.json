@@ -1,0 +1,41 @@
+{
+  "name": "qwik-umami",
+  "version": "0.1.0",
+  "description": "Umami Analytics integration for Qwik",
+  "type": "module",
+  "main": "./lib/index.qwik.mjs",
+  "qwik": "./lib/index.qwik.mjs",
+  "types": "./lib-types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./lib/index.qwik.mjs",
+      "require": "./lib/index.qwik.cjs",
+      "types": "./lib-types/index.d.ts"
+    }
+  },
+  "files": [
+    "lib",
+    "lib-types"
+  ],
+  "scripts": {
+    "build": "vite build --mode lib && tsc --emitDeclarationOnly",
+    "dev": "vite",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "qwik",
+    "analytics",
+    "umami",
+    "tracking",
+    "privacy"
+  ],
+  "license": "MIT",
+  "peerDependencies": {
+    "@builder.io/qwik": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@builder.io/qwik": "^1.13.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.0.0"
+  }
+}
