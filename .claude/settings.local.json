@@ -6,7 +6,11 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:api.github.com)",
       "WebFetch(domain:code.build)",
-      "WebFetch(domain:pr-qwik-sdk.qwik-docs.pages.dev)"
+      "WebFetch(domain:pr-qwik-sdk.qwik-docs.pages.dev)",
+      "WebFetch(domain:umami.is)",
+      "Bash(npm run build)",
+      "WebFetch(domain:registry.npmjs.org)",
+      "WebFetch(domain:unpkg.com)"
     ]
   }
 }

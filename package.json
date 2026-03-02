@@ -11,6 +11,11 @@
       "import": "./lib/index.qwik.mjs",
       "require": "./lib/index.qwik.cjs",
       "types": "./lib-types/index.d.ts"
+    },
+    "./server": {
+      "import": "./lib/server.mjs",
+      "require": "./lib/server.cjs",
+      "types": "./lib-types/server/index.d.ts"
     }
   },
   "files": [

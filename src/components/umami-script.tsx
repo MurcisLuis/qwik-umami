@@ -8,7 +8,10 @@ export const UmamiScript = component$<UmamiConfig>(
     hostUrl,
     autoTrack = true,
     domains,
-    dataDomains,
+    tag,
+    excludeSearch,
+    excludeHash,
+    doNotTrack,
   }) => {
     // eslint-disable-next-line qwik/no-use-visible-task
     useVisibleTask$(() => {
@@ -58,8 +61,20 @@ export const UmamiScript = component$<UmamiConfig>(
             script.setAttribute('data-domains', domains);
           }
 
-          if (dataDomains) {
-            script.setAttribute('data-data-domains', dataDomains);
+          if (tag) {
+            script.setAttribute('data-tag', tag);
+          }
+
+          if (excludeSearch) {
+            script.setAttribute('data-exclude-search', 'true');
+          }
+
+          if (excludeHash) {
+            script.setAttribute('data-exclude-hash', 'true');
+          }
+
+          if (doNotTrack) {
+            script.setAttribute('data-do-not-track', 'true');
           }
 
           script.onerror = () => {

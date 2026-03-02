@@ -1,154 +1,199 @@
 # qwik-umami
 
-> SSR-safe Umami Analytics component and hook for Qwik
+> SSR-safe Umami Analytics integration for Qwik — client-side and server-side tracking.
 
-## What this package does
+## Package info
 
-qwik-umami provides two exports for integrating Umami analytics into a Qwik application:
-
-1. `<UmamiScript>` — A Qwik component that loads the Umami tracker script client-side
-2. `useUmamiTrack()` — A hook that returns a `track()` function for custom events
-
-Page views are tracked automatically by Umami's script. Custom events use `track()`.
-
-## Installation
-
-```bash
-bun add qwik-umami
-npm install qwik-umami
-pnpm add qwik-umami
-```
-
-Peer dependency: `@builder.io/qwik >= 1.0.0`
+- npm: `qwik-umami`
+- Peer dependency: `@builder.io/qwik >= 1.0.0`
+- No runtime dependencies
+- Two entry points: `qwik-umami` (browser) and `qwik-umami/server` (server-side)
 
 ## Exports
 
 ```ts
-import { UmamiScript, useUmamiTrack } from 'qwik-umami';
-import type { UmamiConfig, UmamiEventData } from 'qwik-umami';
+// Browser — import from 'qwik-umami'
+import { UmamiScript, umamiTrack, umamiIdentify } from 'qwik-umami';
+import type { UmamiConfig, UmamiEventData, UmamiPayload } from 'qwik-umami';
+
+// Server — import from 'qwik-umami/server'
+import { serverUmamiTrack, serverUmamiIdentify } from 'qwik-umami/server';
+import type { UmamiServerOptions, UmamiServerPayload } from 'qwik-umami/server';
 ```
 
 ## UmamiScript component
 
-Place in `<head>` inside `root.tsx`. This is the only setup needed for automatic page view tracking.
+Qwik component. Place in `<head>` inside `root.tsx`. Loads the Umami tracker script client-side only using `useVisibleTask$`. Renders `null`.
 
 ```tsx
-import { UmamiScript } from 'qwik-umami';
-
-// In root.tsx, inside <head>:
+// Minimum setup — automatic page view tracking
 <UmamiScript websiteId="your-website-id" />
 
-// Self-hosted:
+// Self-hosted
 <UmamiScript
   websiteId="your-website-id"
   src="https://your-umami.example.com/script.js"
 />
 ```
 
-### Props (UmamiConfig)
+### UmamiConfig props
 
-| Prop | Type | Default | Required | Description |
-| --- | --- | --- | --- | --- |
-| websiteId | string | — | yes | Umami website ID (UUID) |
-| src | string | https://cloud.umami.is/script.js | no | Tracker script URL |
-| hostUrl | string | — | no | Custom data collection endpoint |
-| autoTrack | boolean | true | no | Auto-track page views |
-| domains | string | — | no | Comma-separated allowed domains |
-| dataDomains | string | — | no | Comma-separated data domains |
+| Prop | Type | Default | Required |
+| --- | --- | --- | --- |
+| websiteId | string | — | yes |
+| src | string | https://cloud.umami.is/script.js | no |
+| hostUrl | string | — | no |
+| autoTrack | boolean | true | no |
+| domains | string | — | no |
+| tag | string | — | no |
+| excludeSearch | boolean | — | no |
+| excludeHash | boolean | — | no |
+| doNotTrack | boolean | — | no |
 
-### Implementation details
+Implementation details:
+- Deduplication: checks `document.querySelector('script[data-website-id]')` before loading
+- Availability check: sends HEAD request with 3s timeout before injecting script
+- Fails silently if service is unreachable or blocked by ad blocker
 
-- Uses `useVisibleTask$` (client-side only, SSR-safe)
-- Checks if script is already loaded via `data-website-id` attribute (dedup)
-- Sends HEAD request to verify service availability before injecting script (3s timeout)
-- Fails silently if service is unreachable or script is blocked
+## umamiTrack()
 
-## useUmamiTrack hook
-
-Returns `{ track }` function. SSR-safe (no-op on server).
-
-```tsx
-import { useUmamiTrack } from 'qwik-umami';
-
-const { track } = useUmamiTrack();
-
-// Simple event
-track('button-click');
-
-// Event with data
-track('signup', { plan: 'pro', source: 'landing' });
-```
-
-### track() signature
+Plain module-level function. SSR-safe (`typeof window === 'undefined'` guard). NOT a QRL. Call it inside `onClick$`, `useTask$`, or any Qwik handler.
 
 ```ts
-track(eventName: string, eventData?: Record<string, string | number | boolean>): void
+umamiTrack()                                      // manual pageview
+umamiTrack('event-name')                          // named event
+umamiTrack('event-name', { key: 'value' })        // named event with data
+umamiTrack({ website: 'id', url: '/', name: 'x' }) // full payload
 ```
 
-### Behavior
+Signatures:
+```ts
+function umamiTrack(): void
+function umamiTrack(payload: UmamiPayload): void
+function umamiTrack(eventName: string): void
+function umamiTrack(eventName: string, data: UmamiEventData): void
+```
 
-- If `typeof window === 'undefined'`: returns immediately (SSR)
-- If `window.umami` is not available: logs warning in dev, silent in prod
-- If error occurs: catches and logs in dev, silent in prod
-- Always fire-and-forget, never throws
+## umamiIdentify()
 
-## UmamiEventData type
+Plain module-level function. SSR-safe. Associates the current browser session with a user or properties.
 
 ```ts
-type UmamiEventData = Record<string, string | number | boolean>;
+umamiIdentify({ plan: 'pro' })
+umamiIdentify('user-123')
+umamiIdentify('user-123', { plan: 'pro' })
 ```
 
-Umami constraints: numbers max 4 decimal places, strings max 500 chars, objects max 50 properties.
-
-## Common usage patterns
-
-### Root setup (required)
-```tsx
-// src/root.tsx
-<head>
-  <UmamiScript websiteId="abc-123" />
-</head>
+Signatures:
+```ts
+function umamiIdentify(data: UmamiEventData): void
+function umamiIdentify(uniqueId: string): void
+function umamiIdentify(uniqueId: string, data: UmamiEventData): void
 ```
 
-### CTA tracking
-```tsx
-onClick$={() => track('cta-click', { location: 'hero', label: 'signup' })}
+## serverUmamiTrack()
+
+Server-side function. POSTs to `${hostUrl}/api/send`. Use inside `routeLoader$`, `routeAction$`, or `server$`. Returns `Promise<Response>`.
+
+```ts
+const options: UmamiServerOptions = {
+  websiteId: 'your-website-id',
+  hostUrl: 'https://your-umami-instance.com',
+  userAgent: 'optional-custom-ua', // optional
+};
+
+await serverUmamiTrack(options, 'event-name')
+await serverUmamiTrack(options, 'event-name', { key: 'value' })
+await serverUmamiTrack(options, { url: '/', name: 'event', data: { key: 'value' } })
 ```
 
-### Form submission tracking
-```tsx
-track('contact-form-submit', { service: 'consulting' });
+Signatures:
+```ts
+function serverUmamiTrack(options: UmamiServerOptions, event: string, data?: UmamiEventData): Promise<Response>
+function serverUmamiTrack(options: UmamiServerOptions, payload: UmamiServerPayload): Promise<Response>
 ```
 
-### Auth event tracking
-```tsx
-track('login', { success: true });
-track('register', { success: false });
+HTTP call: `POST ${hostUrl}/api/send` with body `{ type: 'event', payload: { website, ...payload } }`
+
+## serverUmamiIdentify()
+
+Server-side session identification. POSTs to `/api/send` with `type: 'identify'`.
+
+```ts
+await serverUmamiIdentify(options, { userId: 'abc', plan: 'pro' })
 ```
 
-### Feature/action tracking
-```tsx
-track('project-create');
-track('project-open', { status: 'ACTIVE' });
-track('chat-message-sent', { hasAttachments: true });
+Signature:
+```ts
+function serverUmamiIdentify(options: UmamiServerOptions, data: UmamiEventData): Promise<Response>
+```
+
+## Types
+
+```ts
+type UmamiEventData = Record<string, string | number | boolean>
+
+interface UmamiConfig {
+  websiteId: string
+  src?: string
+  hostUrl?: string
+  autoTrack?: boolean
+  domains?: string
+  tag?: string
+  excludeSearch?: boolean
+  excludeHash?: boolean
+  doNotTrack?: boolean
+}
+
+type UmamiPayload = {
+  website: string
+  url?: string
+  referrer?: string
+  title?: string
+  hostname?: string
+  language?: string
+  screen?: string
+  [key: string]: unknown
+}
+
+interface UmamiServerOptions {
+  websiteId: string
+  hostUrl: string
+  userAgent?: string
+}
+
+interface UmamiServerPayload {
+  hostname?: string
+  language?: string
+  referrer?: string
+  screen?: string
+  title?: string
+  url?: string
+  name?: string
+  data?: UmamiEventData
+}
 ```
 
 ## Source structure
 
 ```
 src/
-├── index.ts                    # Barrel export
-├── types.ts                    # UmamiConfig, UmamiEventData, Window augmentation
+├── index.ts                     # Browser barrel export
+├── types.ts                     # All TypeScript types + Window augmentation
 ├── components/
-│   └── umami-script.tsx        # <UmamiScript> component
-└── hooks/
-    └── use-umami-track.ts      # useUmamiTrack() hook
+│   └── umami-script.tsx         # <UmamiScript> Qwik component
+├── utils/
+│   └── track.ts                 # umamiTrack() and umamiIdentify()
+└── server/
+    ├── index.ts                 # Server barrel export
+    └── umami-server.ts          # serverUmamiTrack() and serverUmamiIdentify()
 ```
 
 ## Important notes for LLMs
 
-- This package has NO runtime dependencies. Only `@builder.io/qwik` as peer dep.
-- The `track()` function from `useUmamiTrack()` is NOT a QRL ($). It's a plain function that can be called inside `$()`, `onClick$()`, or any other Qwik handler.
-- `<UmamiScript>` renders `null` — it only has a side effect (injecting the script tag).
-- The package works with both Umami Cloud and self-hosted Umami instances.
-- Do NOT use `data-umami-event` HTML attributes with this package — use the `track()` function from `useUmamiTrack()` instead, as it integrates properly with Qwik's event system.
+- `umamiTrack` and `umamiIdentify` are plain module-level functions, NOT QRLs and NOT hooks. They can be called inside any Qwik `$()` handler because they are imported symbols (the Qwik optimizer can reference them by URL).
+- Do NOT prefix `umamiTrack` with `use` — it is not a Qwik hook. The `use` prefix is reserved for functions that call Qwik primitives like `useSignal`, `useStore`, etc.
+- `serverUmamiTrack` and `serverUmamiIdentify` must only be used in server contexts (routeLoader$, routeAction$, server$). They use `fetch` directly and have no browser guards.
+- `<UmamiScript>` renders `null`. It is a side-effect-only component.
+- Do NOT use `data-umami-event` HTML attributes. Use `umamiTrack()` instead for proper Qwik integration.
+- `UmamiEventData` values are limited by Umami: strings max 500 chars, numbers max 4 decimal places, max 50 properties per object.

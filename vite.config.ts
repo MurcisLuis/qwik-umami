@@ -5,9 +5,13 @@ export default defineConfig({
   build: {
     target: 'es2020',
     lib: {
-      entry: './src/index.ts',
+      entry: {
+        'index.qwik': './src/index.ts',
+        server: './src/server/index.ts',
+      },
       formats: ['es', 'cjs'],
-      fileName: (format) => `index.qwik.${format === 'es' ? 'mjs' : 'cjs'}`,
+      fileName: (format, entryName) =>
+        `${entryName}.${format === 'es' ? 'mjs' : 'cjs'}`,
     },
     rollupOptions: {
       external: [
