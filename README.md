@@ -85,7 +85,7 @@ export const useCheckout = routeAction$(async (data) => {
 
 ### `<UmamiScript>`
 
-Component that loads the Umami tracking script. Uses `useTask$` with `isServer` guard to preserve Qwik's resumability model. Loads via `requestIdleCallback` by default to avoid blocking the main thread.
+Component that loads the Umami tracking script. Uses `useVisibleTask$` for guaranteed one-shot client initialization. Loads via `requestIdleCallback` by default (`strategy: 'idle'`) to avoid blocking the main thread.
 
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -299,7 +299,7 @@ export const onRequest = createUmamiPlugin({
 
 ## How it works
 
-1. `<UmamiScript>` uses Qwik's `useTask$` with an `isServer` guard — preserves resumability (no eager JS download)
+1. `<UmamiScript>` uses Qwik's `useVisibleTask$` for guaranteed one-shot client initialization
 2. By default, the script loads via `requestIdleCallback` to avoid blocking the main thread
 3. If the script fails to load (blocked by ad blocker, network error), it fails silently and cleans up
 4. `umamiTrack()` and `umamiIdentify()` check for `window.umami` before calling — safe everywhere

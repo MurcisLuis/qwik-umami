@@ -1,5 +1,4 @@
-import { component$, useTask$ } from '@builder.io/qwik';
-import { isServer } from '@builder.io/qwik/build';
+import { component$, useVisibleTask$ } from '@builder.io/qwik';
 import type { UmamiConfig } from '../types';
 
 export const UmamiScript = component$<UmamiConfig>(
@@ -15,9 +14,8 @@ export const UmamiScript = component$<UmamiConfig>(
     doNotTrack,
     strategy = 'idle',
   }) => {
-    useTask$(({ cleanup }) => {
-      if (isServer) return;
-
+    // eslint-disable-next-line qwik/no-use-visible-task
+    useVisibleTask$(({ cleanup }) => {
       if (document.querySelector(`script[data-website-id="${websiteId}"]`)) {
         return;
       }

@@ -24,7 +24,7 @@ import type { UmamiServerOptions, UmamiServerPayload, UmamiPluginOptions } from 
 
 ## UmamiScript component
 
-Qwik component. Place in `<head>` inside `root.tsx`. Loads the Umami tracker script client-side only using `useTask$` with `isServer` guard (preserves resumability). Renders `null`.
+Qwik component. Place in `<head>` inside `root.tsx`. Loads the Umami tracker script client-side only using `useVisibleTask$` (one-shot client init). Renders `null`.
 
 ```tsx
 // Minimum setup — automatic page view tracking
