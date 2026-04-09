@@ -85,7 +85,7 @@ export const useCheckout = routeAction$(async (data) => {
 
 ### `<UmamiScript>`
 
-Component that loads the Umami tracking script. Checks service availability before loading and handles errors gracefully.
+Component that loads the Umami tracking script. Uses `useTask$` with `isServer` guard to preserve Qwik's resumability model. Loads via `requestIdleCallback` by default to avoid blocking the main thread.
 
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -98,6 +98,7 @@ Component that loads the Umami tracking script. Checks service availability befo
 | `excludeSearch` | `boolean` | — | Exclude URL search parameters from tracking |
 | `excludeHash` | `boolean` | — | Exclude URL hash fragments from tracking |
 | `doNotTrack` | `boolean` | — | Respect the browser's Do Not Track setting |
+| `strategy` | `'eager' \| 'idle'` | `'idle'` | `'idle'` defers loading via `requestIdleCallback`, `'eager'` loads immediately |
 
 ---
 
@@ -167,6 +168,45 @@ await serverUmamiTrack(options, {
 
 ---
 
+### `createUmamiPlugin()`
+
+Server-side Qwik City plugin for automatic page view tracking. Tracks every page request via the Umami API without requiring the client-side script. Import from `'qwik-umami/server'`. Requires `@builder.io/qwik-city` as peer dependency.
+
+```ts
+// src/routes/plugin@umami.ts
+import { createUmamiPlugin } from 'qwik-umami/server';
+
+export const onRequest = createUmamiPlugin({
+  websiteId: import.meta.env.PUBLIC_UMAMI_ID,
+  hostUrl: import.meta.env.UMAMI_HOST_URL,
+});
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `websiteId` | `string` | **required** | Your Umami website ID |
+| `hostUrl` | `string` | **required** | Umami instance URL |
+| `userAgent` | `string` | request UA | Custom user-agent for tracking requests |
+| `filter` | `(url: URL, headers: Headers) => boolean` | — | Return `false` to skip tracking for specific routes |
+
+**How it works:**
+- Only tracks `GET` requests (skips POST, PUT, DELETE, etc.)
+- Automatically ignores static assets (`.js`, `.css`, `.png`, `.ico`, etc.)
+- Fire-and-forget — the tracking request does NOT block the response
+- Extracts `referrer`, `language`, and `user-agent` from request headers
+
+**Filter example:**
+
+```ts
+export const onRequest = createUmamiPlugin({
+  websiteId: 'your-id',
+  hostUrl: 'https://your-umami.com',
+  filter: (url) => !url.pathname.startsWith('/api/'),
+});
+```
+
+---
+
 ### `serverUmamiIdentify()`
 
 Server-side session identification. Import from `'qwik-umami/server'`.
@@ -189,8 +229,9 @@ import type {
 } from 'qwik-umami';
 
 import type {
-  UmamiServerOptions, // { websiteId, hostUrl, userAgent? }
-  UmamiServerPayload, // Server-side payload shape
+  UmamiServerOptions,  // { websiteId, hostUrl, userAgent? }
+  UmamiServerPayload,  // Server-side payload shape
+  UmamiPluginOptions,  // { websiteId, hostUrl, userAgent?, filter? }
 } from 'qwik-umami/server';
 ```
 
@@ -231,13 +272,39 @@ const options = {
 };
 ```
 
+## Which approach should I use?
+
+| Approach | Best for |
+| --- | --- |
+| **`<UmamiScript>` only** | Most apps — full browser data (screen size, timezone, JS events) |
+| **`createUmamiPlugin` only** | Server-rendered sites, bot tracking, ad-blocker resilience |
+| **Both together** | Maximum coverage — use plugin for page views + component for events |
+
+**Using both together:**
+
+```tsx
+// src/routes/plugin@umami.ts — handles page views server-side
+import { createUmamiPlugin } from 'qwik-umami/server';
+
+export const onRequest = createUmamiPlugin({
+  websiteId: import.meta.env.PUBLIC_UMAMI_ID,
+  hostUrl: import.meta.env.UMAMI_HOST_URL,
+});
+```
+
+```tsx
+// src/root.tsx — handles custom events client-side (autoTrack disabled to avoid duplicate page views)
+<UmamiScript websiteId="your-website-id" autoTrack={false} />
+```
+
 ## How it works
 
-1. `<UmamiScript>` uses Qwik's `useVisibleTask$` to load the tracker script client-side only
-2. Before injecting the `<script>`, it sends a HEAD request to verify Umami is reachable (3s timeout)
-3. If the service is down or blocked, it fails silently — no errors, no broken pages
+1. `<UmamiScript>` uses Qwik's `useTask$` with an `isServer` guard — preserves resumability (no eager JS download)
+2. By default, the script loads via `requestIdleCallback` to avoid blocking the main thread
+3. If the script fails to load (blocked by ad blocker, network error), it fails silently and cleans up
 4. `umamiTrack()` and `umamiIdentify()` check for `window.umami` before calling — safe everywhere
 5. `serverUmamiTrack()` and `serverUmamiIdentify()` POST directly to the Umami `/api/send` endpoint — no browser required
+6. `createUmamiPlugin()` intercepts every GET request at the middleware level and sends a page view to Umami — fire-and-forget, never blocks the response
 
 ## License
 

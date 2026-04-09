@@ -18,6 +18,7 @@ export default defineConfig({
         '@builder.io/qwik',
         '@builder.io/qwik/jsx-runtime',
         '@builder.io/qwik/jsx-dev-runtime',
+        '@builder.io/qwik-city',
         /^@builder\.io\/qwik/,
       ],
     },

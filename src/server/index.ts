@@ -1,2 +1,8 @@
 export { serverUmamiTrack, serverUmamiIdentify } from './umami-server';
-export type { UmamiServerOptions, UmamiServerPayload, UmamiEventData } from '../types';
+export { createUmamiPlugin } from './umami-plugin';
+export type {
+  UmamiServerOptions,
+  UmamiServerPayload,
+  UmamiEventData,
+  UmamiPluginOptions,
+} from '../types';

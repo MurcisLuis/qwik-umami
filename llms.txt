@@ -6,6 +6,7 @@
 
 - npm: `qwik-umami`
 - Peer dependency: `@builder.io/qwik >= 1.0.0`
+- Optional peer dependency: `@builder.io/qwik-city >= 1.0.0` (only needed for `createUmamiPlugin`)
 - No runtime dependencies
 - Two entry points: `qwik-umami` (browser) and `qwik-umami/server` (server-side)
 
@@ -17,13 +18,13 @@ import { UmamiScript, umamiTrack, umamiIdentify } from 'qwik-umami';
 import type { UmamiConfig, UmamiEventData, UmamiPayload } from 'qwik-umami';
 
 // Server — import from 'qwik-umami/server'
-import { serverUmamiTrack, serverUmamiIdentify } from 'qwik-umami/server';
-import type { UmamiServerOptions, UmamiServerPayload } from 'qwik-umami/server';
+import { serverUmamiTrack, serverUmamiIdentify, createUmamiPlugin } from 'qwik-umami/server';
+import type { UmamiServerOptions, UmamiServerPayload, UmamiPluginOptions } from 'qwik-umami/server';
 ```
 
 ## UmamiScript component
 
-Qwik component. Place in `<head>` inside `root.tsx`. Loads the Umami tracker script client-side only using `useVisibleTask$`. Renders `null`.
+Qwik component. Place in `<head>` inside `root.tsx`. Loads the Umami tracker script client-side only using `useTask$` with `isServer` guard (preserves resumability). Renders `null`.
 
 ```tsx
 // Minimum setup — automatic page view tracking
@@ -49,11 +50,14 @@ Qwik component. Place in `<head>` inside `root.tsx`. Loads the Umami tracker scr
 | excludeSearch | boolean | — | no |
 | excludeHash | boolean | — | no |
 | doNotTrack | boolean | — | no |
+| strategy | 'eager' \| 'idle' | 'idle' | no |
 
 Implementation details:
 - Deduplication: checks `document.querySelector('script[data-website-id]')` before loading
-- Availability check: sends HEAD request with 3s timeout before injecting script
-- Fails silently if service is unreachable or blocked by ad blocker
+- Uses `requestIdleCallback` by default (`strategy: 'idle'`) to avoid blocking the main thread
+- Set `strategy: 'eager'` to load immediately on component mount
+- Cleanup removes the script element on component unmount
+- Fails silently if script fails to load (onerror handler)
 
 ## umamiTrack()
 
@@ -115,6 +119,44 @@ function serverUmamiTrack(options: UmamiServerOptions, payload: UmamiServerPaylo
 
 HTTP call: `POST ${hostUrl}/api/send` with body `{ type: 'event', payload: { website, ...payload } }`
 
+## createUmamiPlugin()
+
+Factory that returns a Qwik City `RequestHandler` for server-side page view tracking. Use inside `plugin@umami.ts`. Tracks every GET request as a page view via the Umami API, without requiring the client-side script. Fire-and-forget (does NOT block the response).
+
+```ts
+// src/routes/plugin@umami.ts
+import { createUmamiPlugin } from 'qwik-umami/server';
+
+export const onRequest = createUmamiPlugin({
+  websiteId: import.meta.env.PUBLIC_UMAMI_ID,
+  hostUrl: import.meta.env.UMAMI_HOST_URL,
+});
+```
+
+### UmamiPluginOptions
+
+| Prop | Type | Default | Required |
+| --- | --- | --- | --- |
+| websiteId | string | — | yes |
+| hostUrl | string | — | yes |
+| userAgent | string | request user-agent | no |
+| filter | (url: URL, headers: Headers) => boolean | — | no |
+
+Implementation details:
+- Only tracks GET requests (skips POST, PUT, etc.)
+- Ignores static asset requests (.js, .css, .png, .ico, etc.)
+- Custom `filter` function to exclude specific routes (return false to skip)
+- Extracts referrer, language, and user-agent from request headers
+- Fire-and-forget: errors are silently caught, response is never blocked
+
+### When to use which
+
+| Approach | Best for |
+| --- | --- |
+| `<UmamiScript>` only | Most apps — full browser data (screen, timezone, JS events) |
+| `createUmamiPlugin` only | Server-rendered sites, bots, ad-blocker resilience, no JS needed |
+| Both together | Maximum coverage — set `autoTrack: false` on `<UmamiScript>` to avoid duplicate page views, use client for events only |
+
 ## serverUmamiIdentify()
 
 Server-side session identification. POSTs to `/api/send` with `type: 'identify'`.
@@ -143,6 +185,7 @@ interface UmamiConfig {
   excludeSearch?: boolean
   excludeHash?: boolean
   doNotTrack?: boolean
+  strategy?: 'eager' | 'idle'
 }
 
 type UmamiPayload = {
@@ -172,6 +215,13 @@ interface UmamiServerPayload {
   name?: string
   data?: UmamiEventData
 }
+
+interface UmamiPluginOptions {
+  websiteId: string
+  hostUrl: string
+  userAgent?: string
+  filter?: (url: URL, headers: Headers) => boolean
+}
 ```
 
 ## Source structure
@@ -186,7 +236,8 @@ src/
 │   └── track.ts                 # umamiTrack() and umamiIdentify()
 └── server/
     ├── index.ts                 # Server barrel export
-    └── umami-server.ts          # serverUmamiTrack() and serverUmamiIdentify()
+    ├── umami-server.ts          # serverUmamiTrack() and serverUmamiIdentify()
+    └── umami-plugin.ts          # createUmamiPlugin() factory
 ```
 
 ## Important notes for LLMs
@@ -195,5 +246,7 @@ src/
 - Do NOT prefix `umamiTrack` with `use` — it is not a Qwik hook. The `use` prefix is reserved for functions that call Qwik primitives like `useSignal`, `useStore`, etc.
 - `serverUmamiTrack` and `serverUmamiIdentify` must only be used in server contexts (routeLoader$, routeAction$, server$). They use `fetch` directly and have no browser guards.
 - `<UmamiScript>` renders `null`. It is a side-effect-only component.
+- `createUmamiPlugin` returns a `RequestHandler` — it must be exported as `onRequest` from a `plugin@name.ts` file. It requires `@builder.io/qwik-city` as peer dependency.
+- When using both `createUmamiPlugin` AND `<UmamiScript>`, set `autoTrack: false` on the component to avoid duplicate page views. The plugin handles page views server-side, the component handles custom events client-side.
 - Do NOT use `data-umami-event` HTML attributes. Use `umamiTrack()` instead for proper Qwik integration.
 - `UmamiEventData` values are limited by Umami: strings max 500 chars, numbers max 4 decimal places, max 50 properties per object.

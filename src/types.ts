@@ -8,6 +8,7 @@ export interface UmamiConfig {
   excludeSearch?: boolean;
   excludeHash?: boolean;
   doNotTrack?: boolean;
+  strategy?: 'eager' | 'idle';
 }
 
 export type UmamiEventData = Record<string, string | number | boolean>;
@@ -39,6 +40,13 @@ export interface UmamiServerPayload {
   url?: string;
   name?: string;
   data?: UmamiEventData;
+}
+
+export interface UmamiPluginOptions {
+  websiteId: string;
+  hostUrl: string;
+  userAgent?: string;
+  filter?: (url: URL, headers: Headers) => boolean;
 }
 
 export interface UmamiTracker {
